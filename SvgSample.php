@@ -14,6 +14,8 @@ class SvgSample
 
 		self::demoBezierSegmentBoundingBox();
 
+		self::demoBezierSlice();
+
 		self::demoBezierCtoQ();
 	}
 
@@ -148,7 +150,7 @@ class SvgSample
 	public static function demoBezierToBezierCross()
 	{
 		echo '<hr /><h2>ベジェ曲線とベジェ曲線の交点</h2>';
-		echo '<p>曲線と曲線の交点に黒丸でマークを付けるよ</p>';
+		echo '<p>曲線と曲線の交点に赤丸でマークを付けるよ</p>';
 
 		// 曲線
 		$curves = [
@@ -202,8 +204,8 @@ class SvgSample
 
 
 		$colorList = [
+			'black',
 			'blue',
-			'red',
 		];
 		$svg = '<svg width="800" height="600">';
 		foreach ($curves as $i => $c) {
@@ -211,7 +213,7 @@ class SvgSample
 			$svg .= "<path d='M{$c[0]['x']},{$c[0]['y']} Q{$c[1]['x']},{$c[1]['y']} {$c[2]['x']},{$c[2]['y']}' fill='none' stroke='{$col}'/>";
 		}
 		foreach ($crossPointInfoList as $p) {
-			$svg .= "<circle cx='{$p['x']}' cy='{$p['y']}' r='3' fill='black' />";
+			$svg .= "<circle cx='{$p['x']}' cy='{$p['y']}' r='3' fill='red' />";
 		}
 		$svg .= '</svg>';
 
@@ -251,6 +253,57 @@ class SvgSample
 		$s .= '</svg>';
 		echo $s;
 	}
+
+	public static function demoBezierSlice()
+	{
+		echo '<hr />';
+		echo '<h2>ベジェ曲線の一部をもとにベジェ曲線を作る</h2>';
+
+		// 起点
+		$s = [
+			'x' => 100,
+			'y' => 150,
+		];
+
+		// 終点
+		$e = [
+			'x' => 300,
+			'y' => 150,
+		];
+
+		// 制御点（曲線を曲げる目標）
+		$a = [
+			'x' => 20,
+			'y' => 0,
+		];
+
+		echo '元の曲線<br />';
+		$svg = '<svg width="300" height="300">';
+		$svg .= " <path d='M{$s['x']},{$s['y']} Q{$a['x']},{$a['y']} {$e['x']},{$e['y']}' fill='none' stroke='black'/>";
+		$svg .= '</svg>';
+		echo $svg.'<br />';
+
+
+		$bezierSegment = self::getBezier2Segmet([$s, $a, $e], 0.2, 0.6);
+
+		echo '分断<br />';
+
+		$svg = '<svg width="300" height="300">';
+		$svg .= " <path d='M{$s['x']},{$s['y']} Q{$a['x']},{$a['y']} {$e['x']},{$e['y']}' fill='none' stroke='gray'/>";
+		$svg .= " <path d='M{$bezierSegment[0]['x']},{$bezierSegment[0]['y']} Q{$bezierSegment[1]['x']},{$bezierSegment[1]['y']} {$bezierSegment[2]['x']},{$bezierSegment[2]['y']}' fill='none' stroke='blue'/>";
+		$svg .= "<circle cx='{$bezierSegment[0]['x']}' cy='{$bezierSegment[0]['y']}' r='3' fill='red' />";
+		$svg .= "<circle cx='{$bezierSegment[2]['x']}' cy='{$bezierSegment[2]['y']}' r='3' fill='red' />";
+		$svg .= '</svg>';
+		echo $svg.'<br />';
+
+		echo '作成した曲線<br />';
+		$svg = '<svg width="300" height="300">';
+		$svg .= " <path d='M{$bezierSegment[0]['x']},{$bezierSegment[0]['y']} Q{$bezierSegment[1]['x']},{$bezierSegment[1]['y']} {$bezierSegment[2]['x']},{$bezierSegment[2]['y']}' fill='none' stroke='blue'/>";
+		$svg .= '</svg>';
+		echo $svg.'<br />';
+
+	}
+
 
 	public static function demoBezierSegmentBoundingBox()
 	{
@@ -596,6 +649,37 @@ class SvgSample
 		);
 	}
 
+
+	protected static function getBezier2Segmet($bezier, $start, $end)
+	{
+		$s = $bezier[0];
+		$a = $bezier[1];
+		$e = $bezier[2];
+
+		$middle = $start + (($end - $start) / 2);
+
+		$pointStart = self::getBezier2CurvePoint($s, $e, $a, $start);
+		$pointEnd = self::getBezier2CurvePoint($s, $e, $a, $end);
+		$pointMiddle = self::getBezier2CurvePoint($s, $e, $a, $middle);
+
+		$ppp = [
+			'x' => $pointStart['x'] + (($pointEnd['x'] - $pointStart['x']) / 2),
+			'y' => $pointStart['y'] + (($pointEnd['y'] - $pointStart['y']) / 2),
+		];
+
+		$ccc = [
+			'x' => $ppp['x'] + (($pointMiddle['x'] - $ppp['x']) * 2),
+			'y' => $ppp['y'] + (($pointMiddle['y'] - $ppp['y']) * 2),
+		];
+
+
+		return [
+			$pointStart,
+			$ccc,
+			$pointEnd,
+		];
+	}
+
 	protected static function getBezier2BoundingBox($bezier)
 	{
 		$v1 = [
@@ -823,6 +907,36 @@ class SvgSample
 					}
 				}
 
+				if (true) {
+					if (!empty($crossLengthListToTangentials)) {
+						echo '<ul>';
+						foreach ($crossLengthListToTangentials as $t) {
+							echo "<li>{$t}</li>";
+						}
+						echo '</ul>';
+					}
+
+					echo '<hr />';
+					echo '<svg width="600px" height="600px">';
+					echo "<path d='M{$b1[0]['x']},{$b1[0]['y']} Q{$b1[1]['x']},{$b1[1]['y']} {$b1[2]['x']},{$b1[2]['y']}' stroke='black' fill=none />";
+					echo "<path d='M{$b2[0]['x']},{$b2[0]['y']} Q{$b2[1]['x']},{$b2[1]['y']} {$b2[2]['x']},{$b2[2]['y']}' stroke='blue' fill=none />";
+					if ($i != 0) {
+						foreach ($tangentials[0] as $t) {
+							echo "<path d='M{$t[0]['x']},{$t[0]['y']} {$t[1]['x']},{$t[1]['y']} {$t[2]['x']},{$t[2]['y']} z' stroke='#c0c0c0' fill=none />";
+						}
+					} else {
+						foreach ($tangentials[1] as $t) {
+							echo "<path d='M{$t[0]['x']},{$t[0]['y']} {$t[1]['x']},{$t[1]['y']} {$t[2]['x']},{$t[2]['y']} z' stroke='#c0c0ff' fill=none />";
+						}
+					}
+					foreach ($crossLengthListToTangentials as $t) {
+						$p = self::getBezier2CurvePoint($bezierList[$i][0], $bezierList[$i][2], $bezierList[$i][1], $t);
+						echo "<circle cx='{$p['x']}' cy='{$p['y']}' r='3' fill='red'/>";
+					}
+					echo '</svg>';
+				}
+
+
 				$tangentials[$i] = [];
 				$count = count($crossLengthListToTangentials);
 				for ($ci = 0; $ci < $count; $ci += 2) {
@@ -838,34 +952,6 @@ class SvgSample
 					}
 				}
 
-				if (false) {
-					if (!empty($crossLengthListToTangentials)) {
-						echo '<ul>';
-						foreach ($crossLengthListToTangentials as $t) {
-							echo "<li>{$t}</li>";
-						}
-						echo '</ul>';
-					}
-
-					echo '<hr />';
-					echo '<svg width="600px" height="600px">';
-					echo "<path d='M{$b1[0]['x']},{$b1[0]['y']} Q{$b1[1]['x']},{$b1[1]['y']} {$b1[2]['x']},{$b1[2]['y']}' stroke='black' fill=none />";
-					echo "<path d='M{$b2[0]['x']},{$b2[0]['y']} Q{$b2[1]['x']},{$b2[1]['y']} {$b2[2]['x']},{$b2[2]['y']}' stroke='blue' fill=none />";
-					if ($i != 0) {
-						foreach ($tangentials[0] as $t) {
-							echo "<path d='M{$t[0]['x']},{$t[0]['y']} {$t[1]['x']},{$t[1]['y']} {$t[2]['x']},{$t[2]['y']} z' stroke='#c0c0ff' fill=none />";
-						}
-					} else {
-						foreach ($tangentials[1] as $t) {
-							echo "<path d='M{$t[0]['x']},{$t[0]['y']} {$t[1]['x']},{$t[1]['y']} {$t[2]['x']},{$t[2]['y']} z' stroke='#ffc0c0' fill=none />";
-						}
-					}
-					foreach ($crossLengthListToTangentials as $t) {
-						$p = self::getBezier2CurvePoint($bezierList[$i][0], $bezierList[$i][2], $bezierList[$i][1], $t);
-						echo "<circle cx='{$p['x']}' cy='{$p['y']}' r='3' fill='red'/>";
-					}
-					echo '</svg>';
-				}
 			}
 
 			if (!$isCrossedToTangential) {
