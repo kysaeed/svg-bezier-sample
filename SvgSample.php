@@ -245,7 +245,7 @@ class SvgSample
 		];
 
 
-		$box = self::getBezier2BoundingBox($curve, $start, $end);
+		$box = self::getBezier2BoundingBox($curve);
 
 		$s = '<svg width="500px" height="300px">';
 		$s .= "<path d='M {$curve[0]['x']},{$curve[0]['y']} Q {$curve[1]['x']},{$curve[1]['y']} {$curve[2]['x']},{$curve[2]['y']}' stroke='black' fill='none' />";
@@ -662,20 +662,20 @@ class SvgSample
 		$pointEnd = self::getBezier2CurvePoint($s, $e, $a, $end);
 		$pointMiddle = self::getBezier2CurvePoint($s, $e, $a, $middle);
 
-		$ppp = [
+		$onCurvePoint = [
 			'x' => $pointStart['x'] + (($pointEnd['x'] - $pointStart['x']) / 2),
 			'y' => $pointStart['y'] + (($pointEnd['y'] - $pointStart['y']) / 2),
 		];
 
-		$ccc = [
-			'x' => $ppp['x'] + (($pointMiddle['x'] - $ppp['x']) * 2),
-			'y' => $ppp['y'] + (($pointMiddle['y'] - $ppp['y']) * 2),
+		$newControlPoint = [
+			'x' => $onCurvePoint['x'] + (($pointMiddle['x'] - $onCurvePoint['x']) * 2),
+			'y' => $onCurvePoint['y'] + (($pointMiddle['y'] - $onCurvePoint['y']) * 2),
 		];
 
 
 		return [
 			$pointStart,
-			$ccc,
+			$newControlPoint,
 			$pointEnd,
 		];
 	}
