@@ -2,13 +2,13 @@
 
 class SvgSample
 {
-	const BezierCrossThreshold = 0.001;
+	const BezierCrossThreshold = 0.02;
 
 	public function runDemo()
 	{
-		self::demoBezierToLineCross();
-
 		self::demoBezierToBezierCross();
+
+		self::demoBezierToLineCross();
 
 		self::demoBezierBoundingBox();
 
@@ -17,6 +17,34 @@ class SvgSample
 		self::demoBezierSlice();
 
 		self::demoBezierCtoQ();
+
+		self::demoLinePoint();
+	}
+
+	public static function demoLinePoint()
+	{
+		echo '<hr />';
+		echo '<h2>demoLinePoint</h2>';
+
+		$line = [
+			['x' => 0, 'y' => 0],
+			['x' => 200, 'y' => 200],
+		];
+
+		$point = [
+			'x' => 100, 'y' => 100
+		];
+
+		$t = self::getLineLength($line, $point);
+		echo "legth = {$t}<br />";
+
+		$svg = '<svg width="300" height="300">';
+		$svg .= " <path d='M{$line[0]['x']},{$line[0]['y']} {$line[1]['x']},{$line[1]['y']}' fill='none' stroke='black'/>";
+		$svg .= " <circle cx='{$point['x']}' cy='{$point['y']}' r='3' fill='red' stroke='none'/>";
+		$svg .= '</svg>';
+		echo $svg.'<br />';
+
+
 	}
 
 	public static function demoBezierCtoQ()
@@ -168,7 +196,7 @@ class SvgSample
 				// 終点
 				[
 					'x' => 100,
-					'y' => 200,
+					'y' => 300,
 				],
 			],
 			[
@@ -191,6 +219,7 @@ class SvgSample
 		];
 
 		$crossPointInfoList = self::getBezier2CrossPointByBezier2($curves[0], $curves[1]);
+//		var_dump($crossPointInfoList);
 
 		echo '<ul>';
 		if (!empty($crossPointInfoList)) {
@@ -214,6 +243,14 @@ class SvgSample
 		}
 		foreach ($crossPointInfoList as $p) {
 			$svg .= "<circle cx='{$p['x']}' cy='{$p['y']}' r='3' fill='red' />";
+
+			$c = $curves[0];
+			$lp = self::getBezier2CurvePoint($c[0], $c[2], $c[1], $p['length']);
+			$svg .= "<circle cx='{$lp['x']}' cy='{$lp['y']}' r='6' fill='none' stroke='black' />";
+
+			$c = $curves[1];
+			$lp = self::getBezier2CurvePoint($c[0], $c[2], $c[1], $p['length2']);
+			$svg .= "<circle cx='{$lp['x']}' cy='{$lp['y']}' r='7' fill='none' stroke='blue' />";
 		}
 		$svg .= '</svg>';
 
@@ -504,8 +541,63 @@ class SvgSample
 		return $crossPointListOnLine;
 	}
 
+	public static function getCrossPointByInfLine($v1, $v2)
+	{
+		$a = self::crossProduct(
+			[$v2[0], $v1[0]],
+			$v2
+		) /* / 2 */;
+
+		$b = self::crossProduct(
+			$v2,
+			[$v2[0], $v1[1]]
+		) /* / 2 */;
+
+		$ab = ($a + $b);
+
+// dump("a = {$a}");
+// dump("b = {$b}");
+// dump("ab = {$ab}");
+
+		if (!$ab) {
+			return null;
+		}
+
+		$crossVectorLengthBase = ($a / $ab);
+// echo('<br />v-len='.$crossVectorLengthBase.'<br />');
+//		if (($crossVectorLengthBase < 0)) {
+//			return null;
+//		}
+
+		$crossed = [
+			'x' => $v1[0]['x'] + (($v1[1]['x'] - $v1[0]['x']) * $crossVectorLengthBase),
+			'y' => $v1[0]['y'] + (($v1[1]['y'] - $v1[0]['y']) * $crossVectorLengthBase),
+			'length' => $crossVectorLengthBase,
+		];
+
+		return $crossed;
+	}
+
 	protected static function getLineLength($line, $point)
 	{
+		$vector = [
+			'x' => $point['x'] - $line[0]['x'],
+			'y' => $point['y'] - $line[0]['y'],
+		];
+		$ray = [
+			$point,
+			[
+				'x' => ($vector['y']),
+				'y' => -($vector['x']),
+			]
+		];
+
+
+		$cross = self::getCrossPointByInfLine($line, $ray);
+		return $cross['length'];
+
+
+
 		$v = [
 			'x' => ($line[1]['x'] - $line[0]['x']),
 			'y' => ($line[1]['y'] - $line[0]['y']),
@@ -869,21 +961,19 @@ class SvgSample
 		];
 
 		$tangentials = [
-			[
-				self::getBezier2SegmentTangentialLines($b1, 0, 1),
-			], [
-				self::getBezier2SegmentTangentialLines($b2, 0, 1),
-			],
+			[$b1],
+			[$b2],
 		];
 
 		$crossLengthList = [];
 		for ($loopCounter = 0; $loopCounter < 16; $loopCounter++) {
 			$isCrossedToTangential = false;
 			for ($i = 0; $i < 2; $i++) {
+echo '<hr />curve...<br />';
 				$crossLengthListToTangentials = [];
 				foreach ($tangentials[1 - $i] as $tangentialList) {
-					$len = self::getBezier2CrossLengthListByTangentialList($bezierList[$i], $tangentialList);
-					$crossLengthListToTangentials = array_merge($crossLengthListToTangentials, $len);
+					$length = self::getBezier2CrossLengthListByTangentialList($bezierList[$i], $tangentialList);
+					$crossLengthListToTangentials = array_merge($crossLengthListToTangentials, $length);
 				}
 				sort($crossLengthListToTangentials);
 
@@ -892,12 +982,21 @@ class SvgSample
 					if ($i == 0) {
 						$oldCrossLengthList = $crossLengthListToTangentials;
 						$crossLengthListToTangentials = [];
-
 						$count = count($oldCrossLengthList);
 						for ($ci = 0; $ci < $count; $ci += 2) {
 							$diff =	 $oldCrossLengthList[$ci + 1] - $oldCrossLengthList[$ci];
 							if ($diff < self::BezierCrossThreshold) {
-								$crossLengthList[] = $oldCrossLengthList[$ci] + ($diff / 2);
+								$s = self::getBezier2CurvePoint($bezierList[$i][0], $bezierList[$i][2], $bezierList[$i][1], $oldCrossLengthList[$ci]);
+								$e = self::getBezier2CurvePoint($bezierList[$i][0], $bezierList[$i][2], $bezierList[$i][1], $oldCrossLengthList[$ci + 1]);
+								$line = [$s, $e];
+
+								$otehrCross = self::getBezier2CrossPointByLine($bezierList[1 - $i], $line);
+								$crossLengthList[] = [
+									$oldCrossLengthList[$ci] + ($diff / 2),
+									$otehrCross[0]['length'],
+								];
+
+
 							} else {
 								$isCrossedToTangential = true;
 								$crossLengthListToTangentials[] = $oldCrossLengthList[$ci];
@@ -906,6 +1005,7 @@ class SvgSample
 						}
 					}
 				}
+
 
 				if (true) {
 					if (!empty($crossLengthListToTangentials)) {
@@ -916,7 +1016,6 @@ class SvgSample
 						echo '</ul>';
 					}
 
-					echo '<hr />';
 					echo '<svg width="600px" height="600px">';
 					echo "<path d='M{$b1[0]['x']},{$b1[0]['y']} Q{$b1[1]['x']},{$b1[1]['y']} {$b1[2]['x']},{$b1[2]['y']}' stroke='black' fill=none />";
 					echo "<path d='M{$b2[0]['x']},{$b2[0]['y']} Q{$b2[1]['x']},{$b2[1]['y']} {$b2[2]['x']},{$b2[2]['y']}' stroke='blue' fill=none />";
@@ -963,7 +1062,13 @@ class SvgSample
 		if (!empty($crossLengthList)) {
 			foreach ($crossLengthList as $t) {
 				$bezier = $bezierList[0];
-				$corossPoints[] = self::getBezier2CurvePoint($bezier[0], $bezier[2], $bezier[1], $t);
+				$point = self::getBezier2CurvePoint($bezier[0], $bezier[2], $bezier[1], $t[0]);
+				$corossPoints[] = [
+					'x' => $point['x'],
+					'y' => $point['y'],
+					'length' => $t[0],
+					'length2' => $t[1],
+				];
 			}
 		}
 		return $corossPoints;
@@ -983,5 +1088,3 @@ class SvgSample
 		];
 	}
 }
-
-?>
